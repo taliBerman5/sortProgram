@@ -1,58 +1,11 @@
 import heapq
 import time
 import csv
-
-from utilis import calc_num_chunks, write_execution_time
+from utilis import calc_num_chunks, write_execution_time, merge_files
 import pandas as pd
 
 
-def merge_files(output_file, k, key_pos, header):
-    """
-    Merge K files into one file
 
-    :param output_file: The sorted output file
-    :param k: The number of files to merge
-    :param key_pos: The key positin on which the sort should be done
-    :param header: File header
-    """
-    harr = []
-    out = open(output_file, "w")
-    out.write(header)
-
-    # Open output files in read mode.
-    in_files = [open(str(i), 'r') for i in range(k)]
-    in_files2 = [open(str(i), 'r') for i in range(k)]
-    in_files_csv = [csv.reader(in_files2[i]) for i in range(k)]
-
-    # Create a min heap with k heap nodes.
-    # Every heap node has first element of scratch output file
-    for i in range(k):
-        header = next(in_files[i])   # pass the header
-        header = next(in_files_csv[i])   # pass the header
-        element = in_files[i].readline().strip()
-        if element:
-            key_val = next(in_files_csv[i])[key_pos]
-            heapq.heappush(harr, (key_val, element, i))
-
-    count = 0
-    while count < k:
-        # Get the minimum element and store it in output file
-        root = heapq.heappop(harr)
-        out.write(root[1] + '\n')
-
-        # Find the next element that will
-        # replace current root of heap.
-        element = in_files[root[2]].readline().strip()
-        if element:
-            key_val = next(in_files_csv[root[2]])[key_pos]
-            heapq.heappush(harr, (key_val, element, root[2]))
-        else:
-            count += 1
-
-    # close input and output files
-    for i in range(k):
-        in_files[i].close()
-    out.close()
 
 
 def create_initial_runs(input_file, key, chunk_size, num_chunks):

@@ -1,11 +1,94 @@
-import pandas as pd
+import heapq
 import time
 from multiprocessing import Pool
-from utilis import merge_sort, write_execution_time
-import math
+import csv
+from utilis import calc_num_chunks, write_execution_time, merge_files
+import pandas as pd
 
 
-def read_sort_chunk(file_name, start_row, chunk_size, key):
+
+
+
+def merge_chunks(in_files, output_file, key_pos, header):
+    """
+    Merged sorted chunks in parallel.
+
+    :param chunks: List of sorted dataframes
+    :param key: The key on which the sort should be done
+    :return: Merged and sorted dataframe
+    """
+
+    # There are still chunks to be merged
+    while len(in_files) > 2:
+        # Set up multiprocessing Pool
+        with Pool(processes=len(in_files)//2) as pool:
+            # Each processor will merge two chunks together
+            tasks = [(in_files[i]+in_files[i+1], [in_files[i], in_files[i+1]],2, key_pos, header) for i in range(0,len(in_files)-1,2)]
+            in_files_new = pool.starmap(merge_files_by_name, tasks)
+
+            # If the number of chunks is odd, add the not merged chunk to the next round
+            if len(in_files) % 2 == 1:
+                in_files_new.append(in_files[-1])
+
+            in_files = in_files_new
+
+    merge_files_by_name(output_file, in_files, 2, key_pos, header)
+
+
+
+def merge_files_by_name(output_file, in_files_names, k, key_pos, header):
+    """
+    Merge K files into one file
+
+    :param output_file: The sorted output file
+    :param in_files_names: List of input files names
+    :param k: The number of files to merge
+    :param key_pos: The key positin on which the sort should be done
+    :param header: File header
+    :return: output file name
+    """
+    harr = []
+    out = open(output_file, "w")
+    out.write(header)
+    # Open output files in read mode.
+    in_files = [open(file, 'r') for file in in_files_names]
+    in_files2 = [open(file, 'r') for file in in_files_names]
+    in_files_csv = [csv.reader(in_files2[i]) for i in range(k)]
+    # Create a min heap with k heap nodes.
+    # Every heap node has first element of scratch output file
+    for i in range(k):
+        headings = next(in_files[i])
+        headings = next(in_files_csv[i])
+        element = in_files[i].readline().strip()
+        if element:
+            key_val = next(in_files_csv[i])[key_pos]
+            heapq.heappush(harr, (key_val, element, i))
+
+    count = 0
+    while count < k:
+        # Get the minimum element and store it in output file
+        root = heapq.heappop(harr)
+        out.write(root[1] + '\n')
+        out.flush()
+        # Find the next element that will
+        # replace current root of heap.
+        element = in_files[root[2]].readline().strip()
+        if element:
+            key_val = next(in_files_csv[root[2]])[key_pos]
+            heapq.heappush(harr, (key_val, element, root[2]))
+        else:
+            count += 1
+
+    # close input and output files
+    for i in range(k):
+        in_files[i].close()
+    out.close()
+
+    return output_file
+
+
+
+def read_sort_chunk(file_name, output_file, start_row, chunk_size, key):
     """
      Function to read and sort a specific chunk of the CSV file
 
@@ -16,82 +99,79 @@ def read_sort_chunk(file_name, start_row, chunk_size, key):
     :return: Sorted dataframe with the specified chunk of data
     """
     chunk = pd.read_csv(file_name, skiprows=range(1, start_row), nrows=chunk_size)
-    return chunk.sort_values(key)
+    chunk = chunk.sort_values(key)
+    chunk.to_csv(output_file, index=False)
 
 
-def process_csv_chunks(file_name, chunk_size, key):
+
+def parallel_create_initial_runs(input_file, key, chunk_size, num_chunks):
     """
-    Parallelize CSV reading by processing chunks of data in parallel
+    Using a merge-sort algorithm, create the
+    initial runs and divide them evenly among the output files
 
-    :param file_name: The name of the CSV file
-    :param chunk_size: Number of rows to process in parallel
+    :param input_file:
     :param key: The key on which the sort should be done
-    :return: List of sorted dataframes, each of size chunk_size
+    :param chunk_size: Number of chunks needed to process all data
+    :param num_chunks: Number of rows to process in parallel
     """
-    # Get the total number of rows in the file
-    total_rows = sum(1 for line in open(file_name)) - 1  # Subtracting header row
-
-    num_chunks = math.ceil(total_rows / chunk_size)
 
     # Set up multiprocessing Pool
     with Pool(processes=num_chunks) as pool:
-        # Create a list of arguments (file_name, start_row, chunk_size, key)
-        tasks = [(file_name, i * chunk_size + 1, chunk_size, key) for i in range(num_chunks)]
+        # Create a list of arguments (file_name, output_file, start_row, chunk_size, key)
+        tasks = [(input_file, str(i), i * chunk_size + 1, chunk_size, key) for i in range(num_chunks)]
 
         # Read and sort the chunks in parallel
-        results = pool.starmap(read_sort_chunk, tasks)
-
-    return results
+        pool.starmap(read_sort_chunk, tasks)
 
 
-def merge_chunks(chunks, key):
+
+
+def parallel_external_sort(input_file, output_file, key, num_chunks, chunk_size):
     """
-    Merged sorted chunks in parallel.
+    For sorting data stored on disk in parallel.
 
-    :param chunks: List of sorted dataframes
+    :param input_file:
+    :param output_file:
     :param key: The key on which the sort should be done
-    :return: Merged and sorted dataframe
-    """
-
-    # There are still chunks to be merged
-    while len(chunks) > 1:
-        # Set up multiprocessing Pool
-        with Pool(processes=len(chunks)//2) as pool:
-            # Each processor will merge two chunks together
-            tasks = [(chunks[i], chunks[i+1], key) for i in range(0,len(chunks)-1,2)]
-            new_chunks = pool.starmap(merge_sort, tasks)
-
-            # If the number of chunks is odd, add the not merged chunk to the next round
-            if len(chunks) % 2 == 1:
-                new_chunks.append(chunks[-1])
-
-            chunks = new_chunks
-
-    return chunks[0]
-
-def parallel_sort_by_chunk(file_name, chunk_size, key):
-    """
-    Sort file data according to the key field.
-    Allowing processing only chunk_size records at a time in each server
-
-    :param file_name: The name of the CSV file
+    :param num_chunks: Number of chunks needed to process all data
     :param chunk_size: Number of rows to process in parallel
-    :param key: The key on which the sort should be done
-    :return: Sorted dataframe
     """
-    chunks = process_csv_chunks(file_name, chunk_size, key)
-    return merge_chunks(chunks, key)
+
+    # read the input file, create the initial runs,
+    # and assign the runs to the scratch output files
+    parallel_create_initial_runs(input_file, key, chunk_size, num_chunks)
+
+    in_file = open(input_file, "r")
+    header = next(in_file)
+    headers = header.strip().split(",")
+    key_pos = headers.index(key)
+
+    # Merge the runs using the K-way merging
+    merge_files(output_file, num_chunks, key_pos, header)
+    # merge_chunks([str(i) for i in range(num_chunks)], output_file, key_pos, header)
+
+# Driver code
 
 
-if __name__ == "__main__":
+def main():
+
     # Save the start time of the execution
     start = time.time()
 
-    df = parallel_sort_by_chunk('sample.csv', chunk_size=2000, key='data')
+    input_file = 'sample.csv'
+    output_file = 'sorting-step3.csv'
+    key = 'data'
 
-    # save the result to a new csv file
-    df.to_csv('sorting-step3.csv', index=False)
+    # The size of each partition
+    chunk_size = 2000
+    num_chunks = calc_num_chunks(input_file, chunk_size)
+
+    parallel_external_sort(input_file, output_file, key, num_chunks, chunk_size)
 
     # Save the end time of the execution
     end = time.time()
     write_execution_time('sorting-step3_process_time.txt', start, end)
+
+
+if __name__ == "__main__":
+    main()

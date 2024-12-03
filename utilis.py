@@ -1,4 +1,7 @@
 import pandas as pd
+import math
+import csv
+import heapq
 
 
 def merge_sort(df1, df2, key):
@@ -26,6 +29,54 @@ def merge_sort(df1, df2, key):
     new_rows.extend(df2.iloc[i2:].to_dict('records'))
     return pd.DataFrame(new_rows)
 
+def merge_files(output_file, k, key_pos, header):
+    """
+    Merge K files into one file
+
+    :param output_file: The sorted output file
+    :param k: The number of files to merge
+    :param key_pos: The key positin on which the sort should be done
+    :param header: File header
+    """
+    harr = []
+    out = open(output_file, "w")
+    out.write(header)
+
+    # Open output files in read mode.
+    in_files = [open(str(i), 'r') for i in range(k)]
+    in_files2 = [open(str(i), 'r') for i in range(k)]
+    in_files_csv = [csv.reader(in_files2[i]) for i in range(k)]
+
+    # Create a min heap with k heap nodes.
+    # Every heap node has first element of scratch output file
+    for i in range(k):
+        header = next(in_files[i])   # pass the header
+        header = next(in_files_csv[i])   # pass the header
+        element = in_files[i].readline().strip()
+        if element:
+            key_val = next(in_files_csv[i])[key_pos]
+            heapq.heappush(harr, (key_val, element, i))
+
+    count = 0
+    while count < k:
+        # Get the minimum element and store it in output file
+        root = heapq.heappop(harr)
+        out.write(root[1] + '\n')
+
+        # Find the next element that will
+        # replace current root of heap.
+        element = in_files[root[2]].readline().strip()
+        if element:
+            key_val = next(in_files_csv[root[2]])[key_pos]
+            heapq.heappush(harr, (key_val, element, root[2]))
+        else:
+            count += 1
+
+    # close input and output files
+    for i in range(k):
+        in_files[i].close()
+    out.close()
+
 
 def write_execution_time(name, start, end):
     """
@@ -37,6 +88,12 @@ def write_execution_time(name, start, end):
     """
     with open(name, 'w') as file:
         file.write(str("%.5f" % (end - start)))
+
+
+def calc_num_chunks(file_name, chunk_size):
+    # Get the total number of rows in the file
+    total_rows = sum(1 for line in open(file_name)) - 1  # Subtracting header row
+    return math.ceil(total_rows / chunk_size)
 
 
 def compare_files(file1, file2):

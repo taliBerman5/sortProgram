@@ -5,7 +5,8 @@ There are three algorithms to sort data from sample.csv file based on the `data`
 * step2: Can only Process up to 2000 records at a time
 * step3: Same limitation as in step2 but there are several servers to speed-up time
 
-The three algorithms creates an output file `sorting-step{n}` with the sorted data. In addition, `sorting-step{n}_process_time' file is created that holds the execution time for each algorithm. 
+The three algorithms creates an output file `sorting-step{n}` with the sorted data. 
+In addition, `sorting-step{n}_process_time` file is created that holds the execution time for each algorithm. 
 
 ## Installations 
 On Ubuntu

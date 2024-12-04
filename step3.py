@@ -7,9 +7,6 @@ from utilis import calc_num_chunks, write_execution_time, merge_files
 
 
 
-
-
-
 def merge_chunks(in_files, output_file, key_pos, header):
     """
     Merged sorted chunks in parallel.
@@ -48,6 +45,7 @@ def merge_files_by_name(output_file, in_files_names, k, key_pos, header):
     :param header: File header
     :return: output file name
     """
+
     harr = []
     out = open(output_file, "w")
     out.write(header)

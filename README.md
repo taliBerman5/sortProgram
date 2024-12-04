@@ -18,7 +18,8 @@ pip3 install pandas
 On Windows
 ```bash
 Download python from the official website https://www.python.org/
-pip3 install pandas
+Follow instruction to install pip - https://www.geeksforgeeks.org/how-to-install-pip-on-windows/
+pip install pandas
 ```
 
 ## Quick Start

@@ -75,6 +75,7 @@ def merge_files(output_file, k, key_pos, header):
     # close input and output files
     for i in range(k):
         in_files[i].close()
+        in_files2[i].close()
     out.close()
 
 

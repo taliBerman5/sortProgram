@@ -1,9 +1,10 @@
+import pandas as pd
 import heapq
 import time
 from multiprocessing import Pool
 import csv
 from utilis import calc_num_chunks, write_execution_time, merge_files
-import pandas as pd
+
 
 
 
@@ -69,7 +70,6 @@ def merge_files_by_name(output_file, in_files_names, k, key_pos, header):
         # Get the minimum element and store it in output file
         root = heapq.heappop(harr)
         out.write(root[1] + '\n')
-        out.flush()
         # Find the next element that will
         # replace current root of heap.
         element = in_files[root[2]].readline().strip()
@@ -82,6 +82,7 @@ def merge_files_by_name(output_file, in_files_names, k, key_pos, header):
     # close input and output files
     for i in range(k):
         in_files[i].close()
+        in_files2[i].close()
     out.close()
 
     return output_file
@@ -148,9 +149,8 @@ def parallel_external_sort(input_file, output_file, key, num_chunks, chunk_size)
 
     # Merge the runs using the K-way merging
     merge_files(output_file, num_chunks, key_pos, header)
-    # merge_chunks([str(i) for i in range(num_chunks)], output_file, key_pos, header)
+    # merge_chunks([str(i) for i in range(num_chunks)], output_file, key_pos, header) # parallel merge
 
-# Driver code
 
 
 def main():
